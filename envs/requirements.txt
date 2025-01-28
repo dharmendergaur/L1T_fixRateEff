@@ -1,0 +1,10 @@
+pip
+notebook
+uproot==5.2.1
+pandas
+matplotlib==3.5.1
+mplhep==0.3.32
+pyarrow==15.0.0
+tables==3.8.0
+fsspec-xrootd
+xrootd
