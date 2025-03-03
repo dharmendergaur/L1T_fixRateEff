@@ -11,8 +11,6 @@ def getArrays(inputFiles, branches, nFiles=1, fname="data.parquet"):
     # get the data
     data = ak.concatenate([batch for batch in uproot.iterate(files, filter_name=branches)])
     data = formatBranches(data)
-    if fname:
-        ak.to_parquet(data, fname)
 
     return data
 
