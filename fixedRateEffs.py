@@ -33,7 +33,7 @@ nComp = 4
 l1Labels = ['Default', 'Default_noPUM', 'BaselineZS', 'ConservativeZS']
 branchTypes = ['unp', 'emu', 'emu', 'emu'] # unp or emu
 
-rootDir = "/eos/cms/store/group/dpg_trigger/comm_trigger/L1Trigger/bundocka/metzs/"
+rootDir = "/eos/home-d/ddharmen/JEC/CMSSW_14_1_4_patch1/src/JETMET/perf_job1/code/L1T_fixRateEff"
 
 sigPaths  = ["zmu_base/", "zmu_pumOff/", "zmu_base/", "zmu_con/"]
 bkgPaths  = ["zb_base/", "zb_pumOff/", "zb_base/", "zb_con/"]
@@ -47,7 +47,8 @@ bkgName = "zb"
 
 writeDir = "./data/"
 
-fileName = "nano_2*.root"
+# fileName = "/eos/home-d/ddharmen/JEC/CMSSW_14_1_4_patch1/src/JETMET/zerobias_perf_raw_test/default/nano*.root"
+fileName = "nano_991.root"
 
 sigFiles = [glob.glob(rootDir + path + fileName) for path in sigPaths]
 bkgFiles = [glob.glob(rootDir + path + fileName) for path in bkgPaths]

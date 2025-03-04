@@ -10,6 +10,7 @@ def getArrays(inputFiles, branches, nFiles=1, fname="data.parquet"):
 
     # get the data
     data = ak.concatenate([batch for batch in uproot.iterate(files, filter_name=branches)])
+        
     data = formatBranches(data)
 
     return data
@@ -39,12 +40,54 @@ def formatBranches(data):
     
     # remove the prefixes to the branch names for tidyness
     for branch in ak.fields(data):
+        if branch.startswith("Jet_"):
+            data[branch.replace("Jet_", "recoJet_")] = data[branch]
+            del data[branch]
+
+    for branch in ak.fields(data):
         if "L1" in branch:
             data[branch.replace("L1", "").replace("MP", "").replace("Emul", "")] = data[branch]
             del data[branch]
             
     return data
-        
+
+
+def getL1EmulHT(data):
+    
+    JET = data[branches.puppiJetBranches]
+    etSum = ak.sum(JET['Jet_pt'], axis=1)
+    
+    return etSum
+    
+def getPUPPIJET(data):
+    # Get the offline Puppi jets
+    reco_puppiJetBranches = ['reco' + var for var in branches.puppiJetBranches]
+    puppiJET = data[reco_puppiJetBranches] 
+    puppiJET = ak.with_field(puppiJET, puppiJET['recoJet_pt'] * np.cos(puppiJET['recoJet_phi']), "recoJet_ptx")
+    puppiJET = ak.with_field(puppiJET, puppiJET['recoJet_pt'] * np.sin(puppiJET['recoJet_phi']), "recoJet_pty")
+    puppiJET['recoJet_ht'] = ak.sum(puppiJET['recoJet_pt'], axis=1)
+    
+
+    # Get the offline muons (only PF candidates)
+    muons = data[branches.muonBranches]
+    muons = muons[muons["Muon_isPFcand"] == 1]
+    del muons["Muon_isPFcand"]
+    muons = ak.with_field(muons, muons['Muon_pt']*np.cos(muons['Muon_phi']), "Muon_ptx")
+    muons = ak.with_field(muons, muons['Muon_pt']*np.sin(muons['Muon_phi']), "Muon_pty")
+
+    # make the offline puppi JET no mu
+    puppiJET_noMu = ak.copy(puppiJET)
+    puppiJET_noMu['recoJet_ptx'] = puppiJET['recoJet_ptx'] + np.sum(muons['Muon_ptx'], axis=1)
+    puppiJET_noMu['recoJet_pty'] = puppiJET['recoJet_pty'] + np.sum(muons['Muon_pty'], axis=1)
+    puppiJET_noMu['recoJet_pt'] = np.sqrt(puppiJET_noMu['recoJet_ptx']**2 + puppiJET_noMu['recoJet_pty']**2)
+    puppiJET_noMu['recoJet_ht'] = ak.sum(puppiJET_noMu['recoJet_pt'], axis=1)
+    
+    del puppiJET['recoJet_phi'], puppiJET['recoJet_ptx'], puppiJET['recoJet_pty']
+    del puppiJET_noMu['recoJet_phi'], puppiJET_noMu['recoJet_ptx'], puppiJET_noMu['recoJet_pty']
+    
+    return puppiJET, puppiJET_noMu
+
+
 
 def getPUPPIMET(data):
     
