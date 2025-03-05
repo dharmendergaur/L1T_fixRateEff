@@ -1,0 +1,6 @@
+*.root
+_pycache_/
+utils/__pycache__/
+.sys.v#/
+*.hdf5
+
