@@ -74,7 +74,9 @@ def getL1EmulHT(data):
 # Extract all L1 jets
 def getL1EmulJet1(data):
     JET = data[branches.puppiJetBranches]
-    return JET
+    JET['leadingPt'] = ak.max(JET['Jet_pt'], axis=1)
+
+    return JET['leadingPt']
     
 def getPUPPIJET(data):
     DR_MAX = 0.4  # Maximum delta R between L1T and offline jets for matching
