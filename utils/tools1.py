@@ -3,6 +3,18 @@ import pandas as pd
 import awkward as ak
 import utils.branches as branches
 import uproot
+import vector
+
+
+# DeltaR function
+def deltaR(eta1, phi1, eta2, phi2):
+    """Compute delta R between two jets."""
+    dphi = np.abs(phi1 - phi2)
+    dphi = ak.where(dphi > np.pi, 2*np.pi - dphi, dphi)  # Handle periodic boundary
+    deta = eta1 - eta2
+    return np.sqrt(deta**2 + dphi**2)
+
+    
 
 def getArrays(inputFiles, branches, nFiles=1, fname="data.parquet"):
 
@@ -59,42 +71,111 @@ def getL1EmulHT(data):
     
     return etSum
 
+# Extract all L1 jets
 def getL1EmulJet1(data):
-    
     JET = data[branches.puppiJetBranches]
-    jet1 = ak.max(JET['Jet_pt'], axis=1)
-    
-    return jet1
+    return JET
     
 def getPUPPIJET(data):
-    # Get the offline Puppi jets
+    DR_MAX = 0.4  # Maximum delta R between L1T and offline jets for matching
+    minpT = 20.0
+
+    l1jet = data[branches.puppiJetBranches]
     reco_puppiJetBranches = ['reco' + var for var in branches.puppiJetBranches]
-    puppiJET = data[reco_puppiJetBranches] 
+    puppiJET = data[reco_puppiJetBranches]
+    
     puppiJET = ak.with_field(puppiJET, puppiJET['recoJet_pt'] * np.cos(puppiJET['recoJet_phi']), "recoJet_ptx")
     puppiJET = ak.with_field(puppiJET, puppiJET['recoJet_pt'] * np.sin(puppiJET['recoJet_phi']), "recoJet_pty")
     puppiJET['recoJet_ht'] = ak.sum(puppiJET['recoJet_pt'], axis=1)
-    puppiJET['recoJet_leadingPt'] = ak.max(puppiJET['recoJet_pt'], axis=1)
+    puppiJET['leadingPt'] = ak.max(puppiJET['recoJet_pt'], axis=1)
+
+    leading_puppi_idx = ak.argmax(puppiJET["recoJet_pt"], axis=1)
+    leading_jet_eta = puppiJET['recoJet_eta'][leading_puppi_idx]
+    leading_jet_phi = puppiJET['recoJet_phi'][leading_puppi_idx]
+    leading_jet_pt = puppiJET['recoJet_pt'][leading_puppi_idx]
+
+    matched_l1_jet = []
+    for i in range(len(leading_jet_eta)):
+        matched_jet = None
+        for j in range(len(l1jet['Jet_pt'][i])):
+            dR = deltaR(leading_jet_eta[i], leading_jet_phi[i], l1jet['Jet_eta'][i][j], l1jet['Jet_phi'][i][j])
+            if ak.any(dR < DR_MAX) and ak.any(leading_jet_pt[i] > minpT):
+                matched_jet = l1jet['Jet_pt'][i][j]
+                break
+        matched_l1_jet.append(matched_jet)
+
+    puppiJET = ak.with_field(puppiJET, matched_l1_jet, "matched_l1_jet")
+    return puppiJET
+    
+    # # Optionally, you can add them to the structure
+    # puppiJET['leadingJet_eta'] = leading_jet_eta
+    # puppiJET['leadingJet_phi'] = leading_jet_phi
+    # puppiJET['leadingJet_mass'] = puppiJET['recoJet_mass'][leading_puppi_idx]
+
+    # for i in range(len(l1jet["Jet_pt"])):
+    #     if puppiJET['leadingPt']
+    # # Create the l1jet vector
+    # l1jet_vec_list.append({
+    #     "pt": l1jet["Jet_pt"][i],
+    #     "eta": l1jet["Jet_eta"][i],
+    #     "phi": l1jet["Jet_phi"][i],
+    #     "mass": ak.zeros_like(l1jet["Jet_pt"])[i]
+    # })
+
+    # # Create the leading puppi jet vector
+    # leading_puppi_vec_list.append({
+    #     "pt": puppiJET['leadingPt'][i],
+    #     "eta": puppiJET['leadingJet_eta'][i],
+    #     "phi": puppiJET['leadingJet_phi'][i],
+    #     "mass": ak.zeros_like(puppiJET['leadingPt'])[i]
+    # })
+
+    # Calculate deltaR between the L1 jet and the leading puppi jet
+    # 
+    # leading_puppi_jet = puppiJET[leading_puppi_idx]    
+#     l1jet_vec = ak.zip({
+#         "pt": l1jet["Jet_pt"],
+#         "eta": l1jet["Jet_eta"],
+#         "phi": l1jet["Jet_phi"],
+#         "mass": ak.zeros_like(l1jet["Jet_pt"]) 
+#     })
+    
+#     leading_puppi_vec = ak.zip({
+#         "pt": puppiJET['leadingPt'],
+#         "eta": puppiJET['leadingJet_eta'],
+#         "phi": puppiJET['leadingJet_phi'],
+#         "mass": ak.zeros_like(puppiJET['leadingPt']) 
+#     })
+
+#     leading_puppi_broadcasted = ak.broadcast_arrays(leading_puppi_vec, l1jet_vec)
+
+# # Now calculate deltaR
+#     delta_r = deltaR(l1jet_vec, leading_puppi_broadcasted)
+
+#     matched_l1_idx = ak.argmin(delta_r, axis=1, keepdims=True)
+#     matched_l1_jet = l1jet["Jet_pt"][matched_l1_idx]
+    # puppiJET['recoJet_leadingPt'] = matched_l1_jet
     
 
-    # Get the offline muons (only PF candidates)
-    muons = data[branches.muonBranches]
-    muons = muons[muons["Muon_isPFcand"] == 1]
-    del muons["Muon_isPFcand"]
-    muons = ak.with_field(muons, muons['Muon_pt']*np.cos(muons['Muon_phi']), "Muon_ptx")
-    muons = ak.with_field(muons, muons['Muon_pt']*np.sin(muons['Muon_phi']), "Muon_pty")
+    # # Get the offline muons (only PF candidates)
+    # muons = data[branches.muonBranches]
+    # muons = muons[muons["Muon_isPFcand"] == 1]
+    # del muons["Muon_isPFcand"]
+    # muons = ak.with_field(muons, muons['Muon_pt']*np.cos(muons['Muon_phi']), "Muon_ptx")
+    # muons = ak.with_field(muons, muons['Muon_pt']*np.sin(muons['Muon_phi']), "Muon_pty")
 
-    # make the offline puppi JET no mu
-    puppiJET_noMu = ak.copy(puppiJET)
-    puppiJET_noMu['recoJet_ptx'] = puppiJET['recoJet_ptx'] + np.sum(muons['Muon_ptx'], axis=1)
-    puppiJET_noMu['recoJet_pty'] = puppiJET['recoJet_pty'] + np.sum(muons['Muon_pty'], axis=1)
-    puppiJET_noMu['recoJet_pt'] = np.sqrt(puppiJET_noMu['recoJet_ptx']**2 + puppiJET_noMu['recoJet_pty']**2)
-    puppiJET_noMu['recoJet_ht'] = ak.sum(puppiJET_noMu['recoJet_pt'], axis=1)
-    puppiJET_noMu['recoJet_leadingPt'] = ak.max(puppiJET_noMu['recoJet_pt'], axis=1)
+    # # make the offline puppi JET no mu
+    # puppiJET_noMu = ak.copy(puppiJET)
+    # puppiJET_noMu['recoJet_ptx'] = puppiJET['recoJet_ptx'] + np.sum(muons['Muon_ptx'], axis=1)
+    # puppiJET_noMu['recoJet_pty'] = puppiJET['recoJet_pty'] + np.sum(muons['Muon_pty'], axis=1)
+    # puppiJET_noMu['recoJet_pt'] = np.sqrt(puppiJET_noMu['recoJet_ptx']**2 + puppiJET_noMu['recoJet_pty']**2)
+    # puppiJET_noMu['recoJet_ht'] = ak.sum(puppiJET_noMu['recoJet_pt'], axis=1)
+    # puppiJET_noMu['recoJet_leadingPt'] = ak.max(puppiJET_noMu['recoJet_pt'], axis=1)
     
-    del puppiJET['recoJet_phi'], puppiJET['recoJet_ptx'], puppiJET['recoJet_pty']
-    del puppiJET_noMu['recoJet_phi'], puppiJET_noMu['recoJet_ptx'], puppiJET_noMu['recoJet_pty']
+    # del puppiJET['recoJet_phi'], puppiJET['recoJet_ptx'], puppiJET['recoJet_pty']
+    # del puppiJET_noMu['recoJet_phi'], puppiJET_noMu['recoJet_ptx'], puppiJET_noMu['recoJet_pty']
     
-    return puppiJET, puppiJET_noMu
+    # return puppiJET, puppiJET_noMu
 
 
 

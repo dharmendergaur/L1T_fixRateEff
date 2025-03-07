@@ -58,6 +58,13 @@ def getL1EmulHT(data):
     etSum = ak.sum(JET['Jet_pt'], axis=1)
     
     return etSum
+
+def getL1EmulJet1(data):
+    
+    JET = data[branches.puppiJetBranches]
+    jet1 = ak.max(JET['Jet_pt'], axis=1)
+    
+    return jet1
     
 def getPUPPIJET(data):
     # Get the offline Puppi jets
@@ -66,6 +73,7 @@ def getPUPPIJET(data):
     puppiJET = ak.with_field(puppiJET, puppiJET['recoJet_pt'] * np.cos(puppiJET['recoJet_phi']), "recoJet_ptx")
     puppiJET = ak.with_field(puppiJET, puppiJET['recoJet_pt'] * np.sin(puppiJET['recoJet_phi']), "recoJet_pty")
     puppiJET['recoJet_ht'] = ak.sum(puppiJET['recoJet_pt'], axis=1)
+    puppiJET['recoJet_leadingPt'] = ak.max(puppiJET['recoJet_pt'], axis=1)
     
 
     # Get the offline muons (only PF candidates)
@@ -77,10 +85,11 @@ def getPUPPIJET(data):
 
     # make the offline puppi JET no mu
     puppiJET_noMu = ak.copy(puppiJET)
-    puppiJET_noMu['recoJet_ptx'] = puppiJET['recoJet_ptx'] + np.sum(muons['Muon_ptx'], axis=1)
-    puppiJET_noMu['recoJet_pty'] = puppiJET['recoJet_pty'] + np.sum(muons['Muon_pty'], axis=1)
+    puppiJET_noMu['recoJet_ptx'] = puppiJET['recoJet_ptx'] + ak.sum(muons['Muon_ptx'], axis=1)[:, None]
+    puppiJET_noMu['recoJet_pty'] = puppiJET['recoJet_pty'] + ak.sum(muons['Muon_pty'], axis=1)[:, None]
     puppiJET_noMu['recoJet_pt'] = np.sqrt(puppiJET_noMu['recoJet_ptx']**2 + puppiJET_noMu['recoJet_pty']**2)
     puppiJET_noMu['recoJet_ht'] = ak.sum(puppiJET_noMu['recoJet_pt'], axis=1)
+    puppiJET_noMu['recoJet_leadingPt'] = ak.max(puppiJET_noMu['recoJet_pt'], axis=1)
     
     del puppiJET['recoJet_phi'], puppiJET['recoJet_ptx'], puppiJET['recoJet_pty']
     del puppiJET_noMu['recoJet_phi'], puppiJET_noMu['recoJet_ptx'], puppiJET_noMu['recoJet_pty']
